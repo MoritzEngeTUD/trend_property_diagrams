@@ -7,7 +7,7 @@ name = "trend_property_diagrams"
 version = "0.1.0"
 description = "A package for trend property diagrams."
 authors = [
-    { name="Moritz Enge", email="moritz.enge@tu-dresden,de" }
+    { name="Moritz Enge", email="moritz.enge@tu-dresden.de" }
 ]
 
 requires-python = ">=3.11"
