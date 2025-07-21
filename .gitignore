@@ -34,3 +34,6 @@ logs/
 dist/
 build/
 out/
+
+#Results
+phase_diagrams*

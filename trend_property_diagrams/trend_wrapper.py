@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import importlib.util
+from tqdm import tqdm
 
 TREND_DIR = Path("C:/INS/TREND 5.0/")
 TREND_DLL_PATH = TREND_DIR.joinpath('TREND_x64.dll')
@@ -37,7 +38,8 @@ def calc_Property(output : str, Property1 : str, value1 : float, Property2 : str
 
     return value if value >= 0 else f"Error-Code : {value} : {error_dict.get(str(int(value)))}"
 
-def calc_Property_Array(output : str, Property1 : str, value1 : list, Property2 : str, value2 : list, fluid : str):
+
+def calc_Property_Array(output : str, Property1 : str, value1 : list, Property2 : str, value2 : list, fluid : str, desc_str : str = "Calculating properties..."):
 
     if Property1 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value1 /= 1e6
     elif Property2 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value2 /= 1e6
@@ -47,7 +49,8 @@ def calc_Property_Array(output : str, Property1 : str, value1 : list, Property2 
     if type(fluid) is str: fluid = [fluid]
 
     fld = trend.fluid(inputpair,output,fluid,[1],[1],1,str(TREND_DIR),'specific',str(TREND_DLL_PATH))
-    value_array = [fld.TREND_EOS(v1, v2)[0] for v1, v2 in zip(value1, value2)]
+    value_pair = [i for i in zip(value1, value2)]
+    value_array = [fld.TREND_EOS(values[0], values[1])[0] for values in tqdm(value_pair,desc=desc_str)]
 
     if TREND_ERROR_CODES.exists():
         import csv
