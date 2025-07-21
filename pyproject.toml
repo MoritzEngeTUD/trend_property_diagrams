@@ -15,8 +15,8 @@ license = { text = "MIT" }
 dependencies = [
     "numpy",
     "matplotlib",
+    "tqdm"
 ]
 
 [project.urls]
 Homepage = "https://github.com/MoritzEngeTUD/trend_property_diagrams"
-
