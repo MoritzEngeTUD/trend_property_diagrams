@@ -37,6 +37,27 @@ def calc_Property(output : str, Property1 : str, value1 : float, Property2 : str
 
     return value if value >= 0 else f"Error-Code : {value} : {error_dict.get(str(int(value)))}"
 
+def calc_Property_Array(output : str, Property1 : str, value1 : list, Property2 : str, value2 : list, fluid : str):
+
+    if Property1 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value1 /= 1e6
+    elif Property2 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value2 /= 1e6
+
+    inputpair = Property1+Property2
+
+    if type(fluid) is str: fluid = [fluid]
+
+    fld = trend.fluid(inputpair,output,fluid,[1],[1],1,str(TREND_DIR),'specific',str(TREND_DLL_PATH))
+    value_array = [fld.TREND_EOS(v1, v2)[0] for v1, v2 in zip(value1, value2)]
+
+    if TREND_ERROR_CODES.exists():
+        import csv
+        with open(str(TREND_ERROR_CODES), mode='r', encoding='utf-8-sig') as csv_datei:
+            reader = csv.reader(csv_datei,delimiter=';')
+            error_dict = {zeile[0]: zeile[1] for zeile in reader}
+    else : error_dict = {}
+
+    return [value if value >= 0 else f"Error-Code : {value} : {error_dict.get(str(int(value)))}" for value in value_array]
+
 
 if __name__ == "__main__":
     print("This module is not meant to be run directly. Please import it in your script.")
