@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trend_property_diagrams"
+version = "0.1.0"
+description = "A package for trend property diagrams."
+authors = [
+    { name="Moritz Enge", email="moritz.enge@tu-dresden,de" }
+]
+
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "numpy",
+    "matplotlib",
+]
+
+[project.urls]
+Homepage = "https://github.com/MoritzEngeTUD/trend_property_diagrams"
+
