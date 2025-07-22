@@ -7,6 +7,13 @@ TREND_DIR = Path("C:/INS/TREND 5.0/")
 TREND_DLL_PATH = TREND_DIR.joinpath('TREND_x64.dll')
 TREND_ERROR_CODES = TREND_DIR.joinpath('TREND_ERROR_CODES.csv')
 
+if TREND_ERROR_CODES.exists():
+    import csv
+    with open(str(TREND_ERROR_CODES), mode='r', encoding='utf-8-sig') as csv_datei:
+        reader = csv.reader(csv_datei,delimiter=';')
+        error_dict = {zeile[0]: zeile[1] for zeile in reader}
+else : error_dict = {}
+
 def import_from_path(module_name, file_path):
     spec = importlib.util.spec_from_file_location(module_name, file_path)
     module = importlib.util.module_from_spec(spec)
@@ -29,15 +36,22 @@ def calc_Property(output : str, Property1 : str, value1 : float, Property2 : str
     fld = trend.fluid(inputpair,output,fluid,[1],[1],1,str(TREND_DIR),'specific',str(TREND_DLL_PATH))
     value = fld.TREND_EOS(value1,value2)[0]
 
-    if TREND_ERROR_CODES.exists():
-        import csv
-        with open(str(TREND_ERROR_CODES), mode='r', encoding='utf-8-sig') as csv_datei:
-            reader = csv.reader(csv_datei,delimiter=';')
-            error_dict = {zeile[0]: zeile[1] for zeile in reader}
-    else : error_dict = {}
-
     return value if value >= 0 else f"Error-Code : {value} : {error_dict.get(str(int(value)))}"
 
+
+def calc_ALL_Property(Property1 : str, value1 : float, Property2 : str, value2 : float, fluid : str):
+
+    if Property1 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value1 /= 1e6
+    elif Property2 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value2 /= 1e6
+
+    inputpair = Property1+Property2
+
+    if type(fluid) is str: fluid = [fluid]
+
+    fld = trend.fluid(inputpair,"T",fluid,[1],[1],1,str(TREND_DIR),'specific',str(TREND_DLL_PATH))
+    value = fld.ALLPROP(inputpair,value1,value2)
+
+    return value
 
 def calc_Property_Array(output : str, Property1 : str, value1 : list, Property2 : str, value2 : list, fluid : str, desc_str : str = "Calculating properties..."):
 
@@ -49,18 +63,25 @@ def calc_Property_Array(output : str, Property1 : str, value1 : list, Property2 
     if type(fluid) is str: fluid = [fluid]
 
     fld = trend.fluid(inputpair,output,fluid,[1],[1],1,str(TREND_DIR),'specific',str(TREND_DLL_PATH))
+    input_pair_values = [i for i in zip(value1, value2)]
+    erg_array = [fld.TREND_EOS(values[0], values[1])[0] for values in tqdm(input_pair_values,desc=desc_str)]
+
+    return [value if value >= 0 else f"Error-Code : {value} : {error_dict.get(str(int(value)))}" for value in erg_array]
+
+def calc_ALL_Property_Array(Property1 : list, value1 : float, Property2 : str, value2 : list, fluid : str, desc_str : str = "Calculating properties..."):
+
+    if Property1 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value1 /= 1e6
+    elif Property2 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value2 /= 1e6
+
+    inputpair = Property1+Property2
+
+    if type(fluid) is str: fluid = [fluid]
+
+    fld = trend.fluid(inputpair,"T",fluid,[1],[1],1,str(TREND_DIR),'specific',str(TREND_DLL_PATH))
     value_pair = [i for i in zip(value1, value2)]
-    value_array = [fld.TREND_EOS(values[0], values[1])[0] for values in tqdm(value_pair,desc=desc_str)]
+    value_array = [fld.ALLPROP(inputpair,values[0], values[1]) for values in tqdm(value_pair,desc=desc_str)]
 
-    if TREND_ERROR_CODES.exists():
-        import csv
-        with open(str(TREND_ERROR_CODES), mode='r', encoding='utf-8-sig') as csv_datei:
-            reader = csv.reader(csv_datei,delimiter=';')
-            error_dict = {zeile[0]: zeile[1] for zeile in reader}
-    else : error_dict = {}
-
-    return [value if value >= 0 else f"Error-Code : {value} : {error_dict.get(str(int(value)))}" for value in value_array]
-
+    return [i for i in value_array if type(i) is not str]  # Filter out error codes
 
 if __name__ == "__main__":
     print("This module is not meant to be run directly. Please import it in your script.")
