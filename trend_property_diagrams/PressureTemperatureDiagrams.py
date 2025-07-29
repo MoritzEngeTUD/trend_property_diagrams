@@ -6,6 +6,7 @@ import os
 from parallelbar import progress_map
 import pandas as pd
 from pathlib import Path
+from tqdm import tqdm
 
 P_MIN = 1e-3  # Pa
 P_MAX = 210*1e6  # Pa
@@ -48,9 +49,41 @@ class PropertyDiagrams():
 
             self.PTRIP,self.TTRIP = 517964,216.592
             self.PCRIT,self.TCRIT = 7377297,304.128
+
+        elif self.fluid_name == "Propane":
+            self.PTRIP,self.TTRIP = 0.00017185,85.525
+            self.PCRIT,self.TCRIT = 4251165,369.89
         else: print("current fluid not supported")
 
+    def plot_isolines(self, out,prop1, values1,prop2, values2,color,unit,levels, show=True):
+        X,Y,Z = trend.calc_Property_Array_2D(out,prop1,values1,prop2,values2,self.fluid_name)
+        print(f"Plotting isolines for {out} with {prop1} and {prop2}...")
+        print(Y)
+        match prop1:
+            case "T": X -= 273.15
+            #case "P": X *= 1e-5
+            case "H": X /= 1000
+            case "S": X /= 1000
+
+        match prop2:
+            case "T": Y -= 273.15
+            #case "P": Y *= 1e-5
+            case "H": Y /= 1000
+            case "S": Y /= 1000
+
+        match out:
+            case "T": Z -= 273.15
+            #case "P": Z *= 1e-5
+            case "H": Z /= 1000
+            case "S": Z /= 1000
+
+
+        z = plt.contour(X,Y,Z,colors=color,levels=levels)
+        plt.clabel(z,z.levels, inline=True, fontsize=8, fmt='%1.1f '+unit, colors=color, zorder=5)
+
+
     def calc_data(self):
+
         #props = ["T","H","S","D","CP","CV","WS","U","ST","ETA","TCX","JTCO"]
         props = ["P","T","H","S","D","CP","CV","WS","U","ST","ETA","TCX","JTCO"]
 
@@ -59,9 +92,9 @@ class PropertyDiagrams():
         sve_files = [f for f in all_files_in_dir if f.startswith(f"sve_arrays_{self.fluid_name}")and f.endswith(".pkl")]
         sle_files = [f for f in all_files_in_dir if f.startswith(f"sle_arrays_{self.fluid_name}")and f.endswith(".pkl")]
         
-        load_vle_N = max([int(f.split(".")[0].split("_")[-1]) for f in vle_files])
-        load_sve_N = max([int(f.split(".")[0].split("_")[-1]) for f in sve_files])
-        load_sle_N = max([int(f.split(".")[0].split("_")[-1]) for f in sle_files])
+        load_vle_N = max([int(f.split(".")[0].split("_")[-1]) for f in vle_files]) if len(vle_files) > 0 else 0
+        load_sve_N = max([int(f.split(".")[0].split("_")[-1]) for f in sve_files]) if len(sve_files) > 0 else 0
+        load_sle_N = max([int(f.split(".")[0].split("_")[-1]) for f in sle_files]) if len(sle_files) > 0 else 0
 
         bool_calc_vle = False if load_vle_N >= self.N else True
         bool_calc_sve = False if load_sve_N >= self.N else True
@@ -140,9 +173,7 @@ class PropertyDiagrams():
             self.sle_arrays.to_csv(self.save_path.joinpath('data').joinpath(f"sle_arrays_{self.fluid_name}_{self.N}.csv"), index=False)
             self.sle_arrays.to_pickle(self.save_path.joinpath('data').joinpath(f"sle_arrays_{self.fluid_name}_{self.N}.pkl"))
             self.sle_arrays.to_excel(self.save_path.joinpath('data').joinpath(f"sle_arrays_{self.fluid_name}_{self.N}.xlsx"), index=False)
-
-        
-
+    
     def _get_prop_vle_vap(self, prop):
         p_data_vle = np.geomspace(self.PTRIP*1.01, self.PCRIT*0.99999, self.N)
         return trend.calc_Property_Array(prop, "PVAP", p_data_vle.copy(), "", np.ones_like(p_data_vle), self.fluid_name, use_tqdm=False)
@@ -237,17 +268,19 @@ class PropertyDiagrams():
         plt.text(self.TTRIP-273.15, self.PTRIP*1e-5, '  Triple Point S-L-V', color='red', fontsize=10, ha='left', va='top')
         plt.text(self.TCRIT-273.15, self.PCRIT*1e-5, '  Critical Point', color='green', fontsize=10, ha='left', va='top')
 
-        T_MIN = min([i for i in np.append(self.vap_arrays_vle["T"],[self.liq_arrays_vle["T"],self.vap_arrays_sve["T"],self.sol_arrays_sve["T"],self.liq_arrays_sle["T"],self.sol_arrays_sle["T"]]) if i > 0])
-        T_MAX = max([i for i in np.append(self.vap_arrays_vle["T"],[self.liq_arrays_vle["T"],self.vap_arrays_sve["T"],self.sol_arrays_sve["T"],self.liq_arrays_sle["T"],self.sol_arrays_sle["T"]]) if i > 0])
+        T_MIN_PLOT = min([i for i in np.append(self.vap_arrays_vle["T"],[self.liq_arrays_vle["T"],self.vap_arrays_sve["T"],self.sol_arrays_sve["T"],self.liq_arrays_sle["T"],self.sol_arrays_sle["T"]]) if i > 0])
+        T_MAX_PLOT = max([i for i in np.append(self.vap_arrays_vle["T"],[self.liq_arrays_vle["T"],self.vap_arrays_sve["T"],self.sol_arrays_sve["T"],self.liq_arrays_sle["T"],self.sol_arrays_sle["T"]]) if i > 0])
 
-        print(f"T_MIN: {T_MIN} K ; T_MIN - 273.15: {T_MIN-273.15} °C")
-        print(f"T_MAX: {T_MAX} K ; T_MAX - 273.15: {T_MAX-273.15} °C")
+        P_MIN_PLOT = min([i for i in np.append(self.vap_arrays_vle["P"],[self.liq_arrays_vle["P"],self.vap_arrays_sve["P"],self.sol_arrays_sve["P"],self.liq_arrays_sle["P"],self.sol_arrays_sle["P"]]) if i > 0])
+        P_MAX_PLOT = max([i for i in np.append(self.vap_arrays_vle["P"],[self.liq_arrays_vle["P"],self.vap_arrays_sve["P"],self.sol_arrays_sve["P"],self.liq_arrays_sle["P"],self.sol_arrays_sle["P"]]) if i > 0])
 
-        plt.semilogy([(T_MIN - 0.05 * (T_MAX-T_MIN))-273.15, (T_MAX + 0.5 * (T_MAX-T_MIN))-273.15], [p_AMB*1e-5,p_AMB*1e-5], color='grey', linestyle='--', label='Ambient Pressure', zorder=5)
+        #self.plot_isolines("H", "T", np.linspace(T_MIN_PLOT, T_MAX_PLOT, 10), "P", np.geomspace(P_MIN_PLOT,P_MAX_PLOT,10), color='blue', unit='kJ/kg', show=False)
+        
+        plt.semilogy([(T_MIN_PLOT - 0.05 * (T_MAX_PLOT-T_MIN_PLOT))-273.15, (T_MAX_PLOT + 0.5 * (T_MAX_PLOT-T_MIN_PLOT))-273.15], [p_AMB*1e-5,p_AMB*1e-5], color='grey', linestyle='--', label='Ambient Pressure', zorder=5)
         plt.semilogy([T_AMB-273.15,T_AMB-273.15],[0,P_MAX*1e-5], color='grey', linestyle='--', label='Ambient Pressure', zorder=5)
 
         plt.xlabel('Temperature (°C)')
-        plt.xlim((T_MIN - 0.05 * (T_MAX-T_MIN))-273.15,(T_MAX + 0.5 * (T_MAX-T_MIN))-273.15)
+        plt.xlim((T_MIN_PLOT - 0.05 * (T_MAX_PLOT-T_MIN_PLOT))-273.15,(T_MAX_PLOT + 0.5 * (T_MAX_PLOT-T_MIN_PLOT))-273.15)
         plt.ylabel('Pressure (bar)')
         plt.yticks([1e-8,1e-7,1e-6,1e-5,1e-4,1e-3, 1e-2, 1e-1, 1, 10, 100, 1000],["1mPa","10 mPa", "100 mPa", "1 Pa", "10 Pa", "1 mbar", "10 mbar", "100 mbar", "1 bar", "10 bar", "100 bar", "1000 bar"])
         plt.title(f'Phase Diagram for {self.fluid_name}')
@@ -262,22 +295,32 @@ class PropertyDiagrams():
 
     def plot_p_h(self,show = True):
 
-        plt.semilogy(self.vap_arrays_vle["H"]*1e-3,self.vap_arrays_vle["P"]*1e-5, label='Condensation', color='black') # p : MPa in bar
-        plt.semilogy(self.liq_arrays_vle["H"]*1e-3,self.liq_arrays_vle["P"]*1e-5, label='Evaporation', color='black')
+        plt.semilogy(self.vap_arrays_vle["H"]*1e-3,self.vap_arrays_vle["P"]*1e-5, color='black') # p : MPa in bar
+        plt.semilogy(self.liq_arrays_vle["H"]*1e-3,self.liq_arrays_vle["P"]*1e-5, color='black')
 
-        plt.semilogy(self.vap_arrays_sve["H"]*1e-3,self.vap_arrays_sve["P"]*1e-5, label='Resublimation', color='black')
-        plt.semilogy(self.sol_arrays_sve["H"]*1e-3,self.sol_arrays_sve["P"]*1e-5, label='Sublimation', color='black')
+        plt.semilogy(self.vap_arrays_sve["H"]*1e-3,self.vap_arrays_sve["P"]*1e-5, color='black')
+        plt.semilogy(self.sol_arrays_sve["H"]*1e-3,self.sol_arrays_sve["P"]*1e-5, color='black')
 
-        plt.semilogy(self.sol_arrays_sle["H"]*1e-3,self.sol_arrays_sle["P"]*1e-5, label='Melting', color='black')
-        plt.semilogy(self.liq_arrays_sle["H"]*1e-3,self.liq_arrays_sle["P"]*1e-5, label='Freezing', color='black')
+        plt.semilogy(self.sol_arrays_sle["H"]*1e-3,self.sol_arrays_sle["P"]*1e-5, color='black')
+        plt.semilogy(self.liq_arrays_sle["H"]*1e-3,self.liq_arrays_sle["P"]*1e-5, color='black')
+
+        P_CRIT_PLOT = self.PCRIT*1e-5
+        H_CRIT_PLOT = trend.calc_Property("H", "P", self.PCRIT, "T", self.TCRIT, self.fluid_name)/1e3
+        plt.scatter(H_CRIT_PLOT, P_CRIT_PLOT, label='Critical Point', color='green',zorder=10)
+        
+        P_TRIP_PLOT = self.PTRIP*1e-5
+        H_TRIP_PLOT_MIN = trend.calc_Property("H", "PSUBS+", self.PTRIP, "", 1, self.fluid_name)/1e3
+        H_TRIP_PLOT_MAX = trend.calc_Property("H", "P", self.PTRIP*1.005, "Q", 1, self.fluid_name)/1e3
+
+        plt.semilogy([H_TRIP_PLOT_MIN, H_TRIP_PLOT_MAX], [P_TRIP_PLOT, P_TRIP_PLOT], label='Triple Point Line', color='black',linestyle="dashed",zorder=10)
 
         plt.xlabel('Enthalpy (kJ/kg)')
-        #plt.xlim((T_MIN - 0.05 * (T_MAX-T_MIN))-273.15,(T_MAX + 0.5 * (T_MAX-T_MIN))-273.15)
         plt.ylabel('Pressure (bar)')
         plt.yticks([1e-8,1e-7,1e-6,1e-5,1e-4,1e-3, 1e-2, 1e-1, 1, 10, 100, 1000],["1mPa","10 mPa", "100 mPa", "1 Pa", "10 Pa", "1 mbar", "10 mbar", "100 mbar", "1 bar", "10 bar", "100 bar", "1000 bar"])
         plt.title(f'log(p)-h-Diagram {self.fluid_name}')
         plt.grid()
         plt.tight_layout()
+        plt.legend()
         plt.savefig(self.save_path.joinpath('plots').joinpath(f"log_p_h_{self.fluid_name}.png"), dpi=600)
         plt.savefig(self.save_path.joinpath('plots').joinpath(f"log_p_h_{self.fluid_name}.pdf"))
         plt.savefig(self.save_path.joinpath('plots').joinpath(f"log_p_h_{self.fluid_name}.svg"),transparent=True)
@@ -294,6 +337,16 @@ class PropertyDiagrams():
 
         plt.plot(self.sol_arrays_sle["S"]*1e-3,self.sol_arrays_sle["T"]-273.15, label='Melting', color='black')
         plt.plot(self.liq_arrays_sle["S"]*1e-3,self.liq_arrays_sle["T"]-273.15, label='Freezing', color='black')
+
+        T_CRIT_PLOT = self.TCRIT-273.15
+        S_CRIT_PLOT = trend.calc_Property("S", "P", self.PCRIT, "T", self.TCRIT, self.fluid_name)/1e3
+        plt.scatter(S_CRIT_PLOT, T_CRIT_PLOT, label='Critical Point', color='green',zorder=10)
+
+        T_TRIP_PLOT = self.TTRIP-273.15
+        S_TRIP_PLOT_MIN = trend.calc_Property("S", "PSUBS+", self.PTRIP, "", 1, self.fluid_name)/1e3
+        S_TRIP_PLOT_MAX = trend.calc_Property("S", "P", self.PTRIP*1.005, "Q", 1, self.fluid_name)/1e3
+
+        plt.plot([S_TRIP_PLOT_MIN, S_TRIP_PLOT_MAX], [T_TRIP_PLOT, T_TRIP_PLOT], label='Triple Point Line', color='black',linestyle="dashed",zorder=10)
 
         plt.xlabel('Entropie (kJ/kgK)')
         #plt.xlim((T_MIN - 0.05 * (T_MAX-T_MIN))-273.15,(T_MAX + 0.5 * (T_MAX-T_MIN))-273.15)
@@ -319,6 +372,16 @@ class PropertyDiagrams():
         plt.plot(self.sol_arrays_sle["H"]*1e-3,self.sol_arrays_sle["T"]-273.15, label='Melting', color='black')
         plt.plot(self.liq_arrays_sle["H"]*1e-3,self.liq_arrays_sle["T"]-273.15, label='Freezing', color='black')
 
+        T_CRIT_PLOT = self.TCRIT-273.15
+        H_CRIT_PLOT = trend.calc_Property("H", "P", self.PCRIT, "T", self.TCRIT, self.fluid_name)/1e3
+        plt.scatter(H_CRIT_PLOT, T_CRIT_PLOT, label='Critical Point', color='green',zorder=10)
+
+        T_TRIP_PLOT = self.TTRIP-273.15
+        H_TRIP_PLOT_MIN = trend.calc_Property("H", "PSUBS+", self.PTRIP, "", 1, self.fluid_name)/1e3
+        H_TRIP_PLOT_MAX = trend.calc_Property("H", "P", self.PTRIP*1.005, "Q", 1, self.fluid_name)/1e3
+
+        plt.plot([H_TRIP_PLOT_MIN, H_TRIP_PLOT_MAX], [T_TRIP_PLOT, T_TRIP_PLOT], label='Triple Point Line', color='black',linestyle="dashed",zorder=10)
+
         plt.xlabel('Enthalpy (kJ/kg)')
         #plt.xlim((T_MIN - 0.05 * (T_MAX-T_MIN))-273.15,(T_MAX + 0.5 * (T_MAX-T_MIN))-273.15)
         plt.ylabel('Temperature (°C)')
@@ -342,6 +405,21 @@ class PropertyDiagrams():
 
         plt.plot(self.sol_arrays_sle["S"]*1e-3,self.sol_arrays_sle["H"]*1e-3, label='Melting', color='black')
         plt.plot(self.liq_arrays_sle["S"]*1e-3,self.liq_arrays_sle["H"]*1e-3, label='Freezing', color='black')
+
+        H_CRIT_PLOT = trend.calc_Property("H", "P", self.PCRIT, "T", self.TCRIT, self.fluid_name)/1e3
+        S_CRIT_PLOT = trend.calc_Property("S", "P", self.PCRIT, "T", self.TCRIT, self.fluid_name)/1e3
+        plt.scatter(S_CRIT_PLOT, H_CRIT_PLOT, label='Critical Point', color='green',zorder=10)
+
+        T_TRIP_PLOT = self.TTRIP-273.15
+        H_TRIP_PLOT_MIN = trend.calc_Property("H", "PSUBS+", self.PTRIP, "", 1, self.fluid_name)/1e3
+        H_TRIP_PLOT_MAX = trend.calc_Property("H", "P", self.PTRIP*1.005, "Q", 1, self.fluid_name)/1e3
+        S_TRIP_PLOT_MIN = trend.calc_Property("S", "PSUBS+", self.PTRIP, "", 1, self.fluid_name)/1e3
+        S_TRIP_PLOT_MAX = trend.calc_Property("S", "P", self.PTRIP*1.005, "Q", 1, self.fluid_name)/1e3
+
+        #s_array_trip = np.linspace(S_TRIP_PLOT_MIN, S_TRIP_PLOT_MAX, self.N)
+        #h_array_trip = trend.calc_Property_Array("S", "P", [self.PTRIP for i in s_array_trip] , "S", s_array_trip, self.fluid_name, use_tqdm=False)/1e3
+
+        #plt.plot([S_TRIP_PLOT_MIN, S_TRIP_PLOT_MAX], h_array_trip, label='Triple Point Line', color='black',linestyle="dashed",zorder=10)
 
         plt.xlabel('Entropy (kJ/kgK)')
         #plt.xlim((T_MIN - 0.05 * (T_MAX-T_MIN))-273.15,(T_MAX + 0.5 * (T_MAX-T_MIN))-273.15)
@@ -367,6 +445,16 @@ class PropertyDiagrams():
         plt.semilogy(self.sol_arrays_sle["S"]*1e-3,self.sol_arrays_sle["P"]*1e-5, label='Melting', color='black')
         plt.semilogy(self.liq_arrays_sle["S"]*1e-3,self.liq_arrays_sle["P"]*1e-5, label='Freezing', color='black')
 
+        P_CRIT_PLOT = self.PCRIT*1e-5
+        S_CRIT_PLOT = trend.calc_Property("S", "P", self.PCRIT, "T", self.TCRIT, self.fluid_name)/1e3
+        plt.scatter(S_CRIT_PLOT, P_CRIT_PLOT, label='Critical Point', color='green',zorder=10)
+
+        P_TRIP_PLOT = self.PTRIP*1e-5
+        S_TRIP_PLOT_MIN = trend.calc_Property("S", "PSUBS+", self.PTRIP, "", 1, self.fluid_name)/1e3
+        S_TRIP_PLOT_MAX = trend.calc_Property("S", "P", self.PTRIP*1.005, "Q", 1, self.fluid_name)/1e3
+
+        plt.plot([S_TRIP_PLOT_MIN, S_TRIP_PLOT_MAX], [P_TRIP_PLOT, P_TRIP_PLOT], label='Triple Point Line', color='black',linestyle="dashed",zorder=10)
+
         plt.xlabel('Entropy (kJ/kgK)')
         #plt.xlim((T_MIN - 0.05 * (T_MAX-T_MIN))-273.15,(T_MAX + 0.5 * (T_MAX-T_MIN))-273.15)
         plt.ylabel('Pressure')
@@ -382,7 +470,7 @@ class PropertyDiagrams():
 
 if __name__ == "__main__":
     print("This module is not meant to be run directly. Please import it in your script.")
-    PD = PropertyDiagrams("Water",N=500)
+    PD = PropertyDiagrams("Water",N=50000)
     PD.plot_phase_diagram(show=True)
     PD.plot_p_h()
     PD.plot_T_s()

@@ -38,3 +38,4 @@ out/
 #Results
 phase_diagrams*
 res/
+scripts/test.py

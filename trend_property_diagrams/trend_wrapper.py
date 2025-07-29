@@ -42,8 +42,8 @@ def calc_Property(output : str, Property1 : str, value1 : float, Property2 : str
 
 def calc_Property_Array(output : str, Property1 : str, value1 : list, Property2 : str, value2 : list, fluid : str, desc_str : str = "Calculating properties...",use_tqdm = True):
 
-    if Property1 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value1 /= 1e6
-    elif Property2 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value2 /= 1e6
+    if Property1 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value1 *= 1e-6
+    elif Property2 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value2 *= 1e-6
 
     inputpair = Property1+Property2
 
@@ -57,6 +57,30 @@ def calc_Property_Array(output : str, Property1 : str, value1 : list, Property2 
         erg_array = [fld.TREND_EOS(values[0], values[1])[0] for values in input_pair_values]
 
     return erg_array
+
+def calc_Property_Array_2D(output : str, Property1 : str, value1 : list, Property2 : str, value2 : list, fluid : str, desc_str : str = "Calculating properties for 2D-Array...",use_tqdm = True):
+
+    if Property1 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value1 /= 1e6
+    elif Property2 in ["P","PLIQ","PVAP","PSUBV+","PSUBS+","PMLTL+","PMLTS+"] : value2 /= 1e6
+    X,Y = np.meshgrid(np.array(value1),np.array(value2))
+    Z = np.zeros_like(X)
+
+    inputpair = Property1+Property2
+    if type(fluid) is str: fluid = [fluid]
+    fld = trend.fluid(inputpair,output,fluid,[1],[1],1,str(TREND_DIR),'specific',str(TREND_DLL_PATH))
+
+    if use_tqdm:
+        for i in tqdm(range(X.shape[0]), desc=desc_str):
+            for j in range(X.shape[1]):
+                Z[i,j] = fld.TREND_EOS(X[i,j], Y[i,j])[0]
+    else:
+        for i in range(X.shape[0]):
+            for j in range(X.shape[1]):
+                Z[i,j] = fld.TREND_EOS(X[i,j], Y[i,j])[0]
+
+    return Z
+
+
 
 
 if __name__ == "__main__":
